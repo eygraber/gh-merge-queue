@@ -8,6 +8,7 @@ MUTED=false
 DRY_RUN=false
 AUTO_MERGE=true
 PRE_PUSH_COMMAND=""
+MERGE_METHOD="rebase"
 GIT_OPERATIONS_PERFORMED=false
 BELL_DELAY=5
 MAX_BELL_DELAY=60
@@ -65,6 +66,7 @@ function show_help() {
   echo "  --dry-run                Print the commands that would be executed without running them."
   echo "  --[no-]auto-merge        Enable or disable auto-merge for the pull requests (default: enabled)."
   echo "  --pre-push-command <cmd> Command to run before pushing to GitHub."
+  echo "  --merge-method <method>  Merge method to use (squash, rebase, or merge). Default: rebase."
   echo "  --help                   Show this help message."
 }
 
@@ -109,6 +111,14 @@ while [[ $# -gt 0 ]]; do
       ;; 
     --pre-push-command)
       PRE_PUSH_COMMAND="$2"
+      shift 2
+      ;;
+    --merge-method)
+      if [[ "$2" != "squash" && "$2" != "rebase" && "$2" != "merge" ]]; then
+        echo "Error: Invalid merge method. Must be one of: squash, rebase, merge." >&2
+        exit 1
+      fi
+      MERGE_METHOD="$2"
       shift 2
       ;; 
     --help)
@@ -205,7 +215,7 @@ for BRANCH in "${BRANCHES[@]}"; do
     AUTO_MERGE_STATUS=$(gh pr view "$PR_URL" --json autoMergeRequest -q .autoMergeRequest)
     if [[ -z "$AUTO_MERGE_STATUS" ]]; then
       echo "Enabling auto-merge for pull request $PR_URL"
-      run_command "gh pr merge \"$PR_URL\" --auto --squash"
+      run_command "gh pr merge \"$PR_URL\" --auto --$MERGE_METHOD"
     fi
   fi
 
