@@ -4,6 +4,29 @@ set -e
 # Configuration
 POLL_INTERVAL_SECONDS=30
 TIMEOUT_SECONDS=900 # 15 minutes
+MUTED=false
+BELL_DELAY=5
+MAX_BELL_DELAY=60
+
+function notify_user() {
+  if [[ "$(uname)" == "Darwin" ]]; then
+    osascript -e "display notification \"$1\" with title \"git-queue\""
+  elif command -v notify-send &> /dev/null; then
+    notify-send "git-queue" "$1"
+  else
+    echo -e "\a"
+  fi
+}
+
+function ring_bell() {
+  if [[ "$MUTED" = false ]]; then
+    echo -e "\a"
+    sleep "$BELL_DELAY"
+    if (( BELL_DELAY < MAX_BELL_DELAY )); then
+      BELL_DELAY=$((BELL_DELAY + 5))
+    fi
+  fi
+}
 
 function cleanup() {
   echo "Cleaning up..."
@@ -19,6 +42,7 @@ function show_help() {
   echo "Options:"
   echo "  --timeout <seconds>    Timeout for waiting for a pull request to be merged (default: 900)."
   echo "  --poll-interval <seconds>  Interval for polling the pull request status (default: 30)."
+  echo "  --muted                  Disable the bell sound."
   echo "  --help                   Show this help message."
 }
 
@@ -32,6 +56,10 @@ while [[ $# -gt 0 ]]; do
     --poll-interval)
       POLL_INTERVAL_SECONDS="$2"
       shift 2
+      ;;
+    --muted)
+      MUTED=true
+      shift
       ;;
     --help)
       show_help
@@ -48,18 +76,21 @@ done
 # Check for gh CLI
 if ! command -v gh &> /dev/null; then
   echo "Error: gh CLI is not installed. Please install it to use this script."
+  notify_user "Error: gh CLI is not installed. Please install it to use this script."
   exit 1
 fi
 
 # Check for gh auth status
 if ! gh auth status &> /dev/null; then
   echo "Error: Not logged in to GitHub. Please run 'gh auth login'."
+  notify_user "Error: Not logged in to GitHub. Please run 'gh auth login'."
   exit 1
 fi
 
 MAIN_BRANCH=$(gh repo view --json defaultBranchRef.name -q .defaultBranchRef.name)
 if [[ -z "$MAIN_BRANCH" ]]; then
   echo "Error: Could not determine the default branch for this repository."
+  notify_user "Error: Could not determine the default branch for this repository."
   exit 1
 fi
 echo "Using main branch: $MAIN_BRANCH"
@@ -77,6 +108,7 @@ git fetch --all --prune
 
 # Loop through the pull requests and process them
 for BRANCH in "${BRANCHES[@]}"; do
+  BELL_DELAY=5 # Reset bell delay for each branch
   echo "Processing pull request branch: $BRANCH"
   git checkout "$BRANCH"
   git rebase "$MAIN_BRANCH"
@@ -85,6 +117,7 @@ for BRANCH in "${BRANCHES[@]}"; do
   PR_URL=$(gh pr view --json url -q .url)
   if [[ -z "$PR_URL" ]]; then
     echo "Error: Could not get pull request URL for branch '$BRANCH'."
+    notify_user "Error: Could not get pull request URL for branch '$BRANCH'."
     exit 1
   fi
 
@@ -97,10 +130,27 @@ for BRANCH in "${BRANCHES[@]}"; do
       break
     fi
 
+    if [[ "$STATE" == "CLOSED" ]]; then
+      echo "Error: Pull request $PR_URL has been closed without merging."
+      notify_user "Error: Pull request $PR_URL has been closed without merging."
+      ring_bell
+      continue
+    fi
+
+    CHECKS_STATUS=$(gh pr checks "$PR_URL" --json conclusion -q '[.[] | select(.conclusion != "SUCCESS" and .conclusion != "SKIPPED" and .conclusion != null)] | length')
+    if [[ "$CHECKS_STATUS" -gt 0 ]]; then
+      echo "Error: Some checks have failed for pull request $PR_URL."
+      notify_user "Error: Some checks have failed for pull request $PR_URL."
+      ring_bell
+      continue
+    fi
+
     ELAPSED_TIME=$(( $(date +%s) - START_TIME ))
     if (( ELAPSED_TIME > TIMEOUT_SECONDS )); then
       echo "Error: Timeout waiting for pull request $PR_URL to be merged."
-      exit 1
+      notify_user "Error: Timeout waiting for pull request $PR_URL to be merged."
+      ring_bell
+      continue
     fi
 
     sleep "$POLL_INTERVAL_SECONDS"
@@ -113,3 +163,4 @@ for BRANCH in "${BRANCHES[@]}"; do
 done
 
 echo "All pull requests have been processed."
+notify_user "All pull requests have been processed."

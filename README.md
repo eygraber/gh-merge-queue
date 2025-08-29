@@ -9,6 +9,8 @@ A simple script to automate the process of merging stacked pull requests.
 - Deletes the local branch after the pull request is merged.
 - Configurable timeout and poll interval.
 - Automatically detects the default branch of the repository.
+- Notifies the user of errors and completion.
+- Rings a bell with a linear backoff on error.
 
 ## Usage
 
@@ -20,8 +22,11 @@ A simple script to automate the process of merging stacked pull requests.
 
 - `--timeout <seconds>`: Timeout for waiting for a pull request to be merged (default: 900).
 - `--poll-interval <seconds>`: Interval for polling the pull request status (default: 30).
+- `--muted`: Disable the bell sound.
 - `--help`: Show the help message.
 
 ## Dependencies
 
 - [GitHub CLI](https://cli.github.com/)
+- `notify-send` (optional, for desktop notifications on Linux)
+- `osascript` (optional, for desktop notifications on macOS)
