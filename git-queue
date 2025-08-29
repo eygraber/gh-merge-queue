@@ -68,6 +68,17 @@ function show_help() {
   echo "  --help                   Show this help message."
 }
 
+function prompt_user_for_approval() {
+  while true; do
+    read -p "Do you want to continue polling for approvals? (y/n) " yn
+    case $yn in
+        [Yy]* ) break;;
+        [Nn]* ) exit;;
+        * ) echo "Please answer yes or no.";;
+    esac
+done
+}
+
 # Parse command-line arguments
 LAST_BRANCH=""
 while [[ $# -gt 0 ]]; do
@@ -224,6 +235,20 @@ for BRANCH in "${BRANCHES[@]}"; do
       notify_user "Error: Some checks have failed for pull request $PR_URL."
       ring_bell
       continue
+    fi
+
+    AUTO_MERGE_STATUS=$(gh pr view "$PR_URL" --json autoMergeRequest -q .autoMergeRequest)
+    if [[ -z "$AUTO_MERGE_STATUS" ]]; then
+        echo "Pull request $PR_URL is ready to be merged, but auto-merge is disabled."
+        notify_user "Pull request $PR_URL is ready to be merged, but auto-merge is disabled."
+        ring_bell
+    fi
+
+    REVIEW_DECISION=$(gh pr view "$PR_URL" --json reviewDecision -q .reviewDecision)
+    if [[ "$REVIEW_DECISION" == "REVIEW_REQUIRED" || "$REVIEW_DECISION" == "CHANGES_REQUESTED" ]]; then
+      echo "Pull request $PR_URL is waiting for approval."
+      notify_user "Pull request $PR_URL is waiting for approval."
+      prompt_user_for_approval
     fi
 
     ELAPSED_TIME=$(( $(date +%s) - START_TIME ))

@@ -15,6 +15,8 @@ A simple script to automate the process of merging stacked pull requests.
 - Dry run mode to print the commands that would be executed without running them.
 - Automatically enables auto-merge for the pull requests.
 - Allows specifying a command to run before pushing to GitHub.
+- Notifies the user if a PR is ready to merge but auto-merge is disabled.
+- Prompts the user to continue or stop if a PR is waiting for approval.
 
 ## Usage
 
