@@ -8,10 +8,12 @@ MUTED=false
 DRY_RUN=false
 AUTO_MERGE=true
 PRE_PUSH_COMMAND=""
+GIT_OPERATIONS_PERFORMED=false
 BELL_DELAY=5
 MAX_BELL_DELAY=60
 
 function run_command() {
+  GIT_OPERATIONS_PERFORMED=true
   if [[ "$DRY_RUN" = true ]]; then
     echo "[DRY RUN] $1"
   else
@@ -44,10 +46,12 @@ function ring_bell() {
 }
 
 function cleanup() {
-  echo "Cleaning up..."
-  run_command "git fetch -p -P"
-  run_command "git remote prune origin"
-  run_command "git gc"
+  if [[ "$GIT_OPERATIONS_PERFORMED" = true ]]; then
+    echo "Cleaning up..."
+    run_command "git fetch -p -P"
+    run_command "git remote prune origin"
+    run_command "git gc"
+  fi
 }
 
 trap cleanup EXIT
