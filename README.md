@@ -13,6 +13,7 @@ A simple script to automate the process of merging stacked pull requests.
 - Notifies the user of errors and completion.
 - Rings a bell with a linear backoff on error.
 - Dry run mode to print the commands that would be executed without running them.
+- Automatically enables auto-merge for the pull requests.
 
 ## Usage
 
@@ -26,6 +27,7 @@ A simple script to automate the process of merging stacked pull requests.
 - `--poll-interval <seconds>`: Interval for polling the pull request status (default: 30).
 - `--muted`: Disable the bell sound.
 - `--dry-run`: Print the commands that would be executed without running them.
+- `--[no-]auto-merge`: Enable or disable auto-merge for the pull requests (default: enabled).
 - `--help`: Show the help message.
 
 ## Dependencies

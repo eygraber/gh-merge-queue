@@ -6,6 +6,7 @@ POLL_INTERVAL_SECONDS=30
 TIMEOUT_SECONDS=900 # 15 minutes
 MUTED=false
 DRY_RUN=false
+AUTO_MERGE=true
 BELL_DELAY=5
 MAX_BELL_DELAY=60
 
@@ -57,6 +58,7 @@ function show_help() {
   echo "  --poll-interval <seconds>  Interval for polling the pull request status (default: 30)."
   echo "  --muted                  Disable the bell sound."
   echo "  --dry-run                Print the commands that would be executed without running them."
+  echo "  --[no-]auto-merge        Enable or disable auto-merge for the pull requests (default: enabled)."
   echo "  --help                   Show this help message."
 }
 
@@ -67,23 +69,31 @@ while [[ $# -gt 0 ]]; do
     --timeout)
       TIMEOUT_SECONDS="$2"
       shift 2
-      ;;
+      ;; 
     --poll-interval)
       POLL_INTERVAL_SECONDS="$2"
       shift 2
-      ;;
+      ;; 
     --muted)
       MUTED=true
       shift
-      ;;
+      ;; 
     --dry-run)
       DRY_RUN=true
       shift
-      ;;
+      ;; 
+    --auto-merge)
+      AUTO_MERGE=true
+      shift
+      ;; 
+    --no-auto-merge)
+      AUTO_MERGE=false
+      shift
+      ;; 
     --help)
       show_help
       exit 0
-      ;;
+      ;; 
     *)
       if [[ -z "$LAST_BRANCH" ]]; then
         LAST_BRANCH="$1"
@@ -93,7 +103,7 @@ while [[ $# -gt 0 ]]; do
         show_help
         exit 1
       fi
-      ;;
+      ;; 
   esac
 done
 
@@ -164,6 +174,14 @@ for BRANCH in "${BRANCHES[@]}"; do
     echo "Error: Could not get pull request URL for branch '$BRANCH'."
     notify_user "Error: Could not get pull request URL for branch '$BRANCH'."
     exit 1
+  fi
+
+  if [[ "$AUTO_MERGE" = true ]]; then
+    AUTO_MERGE_STATUS=$(gh pr view "$PR_URL" --json autoMergeRequest -q .autoMergeRequest)
+    if [[ -z "$AUTO_MERGE_STATUS" ]]; then
+      echo "Enabling auto-merge for pull request $PR_URL"
+      run_command "gh pr merge \"$PR_URL\" --auto --squash"
+    fi
   fi
 
   echo "Waiting for pull request $PR_URL to be merged..."
