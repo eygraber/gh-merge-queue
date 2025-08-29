@@ -7,6 +7,7 @@ TIMEOUT_SECONDS=900 # 15 minutes
 MUTED=false
 DRY_RUN=false
 AUTO_MERGE=true
+PRE_PUSH_COMMAND=""
 BELL_DELAY=5
 MAX_BELL_DELAY=60
 
@@ -59,6 +60,7 @@ function show_help() {
   echo "  --muted                  Disable the bell sound."
   echo "  --dry-run                Print the commands that would be executed without running them."
   echo "  --[no-]auto-merge        Enable or disable auto-merge for the pull requests (default: enabled)."
+  echo "  --pre-push-command <cmd> Command to run before pushing to GitHub."
   echo "  --help                   Show this help message."
 }
 
@@ -89,6 +91,10 @@ while [[ $# -gt 0 ]]; do
     --no-auto-merge)
       AUTO_MERGE=false
       shift
+      ;; 
+    --pre-push-command)
+      PRE_PUSH_COMMAND="$2"
+      shift 2
       ;; 
     --help)
       show_help
@@ -167,6 +173,10 @@ for BRANCH in "${BRANCHES[@]}"; do
   echo "Processing pull request branch: $BRANCH"
   run_command "git checkout \"$BRANCH\""
   run_command "git rebase \"$MAIN_BRANCH\""
+  if [[ -n "$PRE_PUSH_COMMAND" ]]; then
+    echo "Running pre-push command: $PRE_PUSH_COMMAND"
+    run_command "$PRE_PUSH_COMMAND"
+  fi
   run_command "git push --force-with-lease"
 
   PR_URL=$(gh pr view --json url -q .url)

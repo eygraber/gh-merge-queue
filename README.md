@@ -14,6 +14,7 @@ A simple script to automate the process of merging stacked pull requests.
 - Rings a bell with a linear backoff on error.
 - Dry run mode to print the commands that would be executed without running them.
 - Automatically enables auto-merge for the pull requests.
+- Allows specifying a command to run before pushing to GitHub.
 
 ## Usage
 
@@ -28,6 +29,7 @@ A simple script to automate the process of merging stacked pull requests.
 - `--muted`: Disable the bell sound.
 - `--dry-run`: Print the commands that would be executed without running them.
 - `--[no-]auto-merge`: Enable or disable auto-merge for the pull requests (default: enabled).
+- `--pre-push-command <cmd>`: Command to run before pushing to GitHub.
 - `--help`: Show the help message.
 
 ## Dependencies
