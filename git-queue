@@ -51,7 +51,7 @@ function cleanup() {
 trap cleanup EXIT
 
 function show_help() {
-  echo "Usage: $(basename "$0") [options]"
+  echo "Usage: $(basename "$0") [options] <last-branch>"
   echo "Options:"
   echo "  --timeout <seconds>    Timeout for waiting for a pull request to be merged (default: 900)."
   echo "  --poll-interval <seconds>  Interval for polling the pull request status (default: 30)."
@@ -61,6 +61,7 @@ function show_help() {
 }
 
 # Parse command-line arguments
+LAST_BRANCH=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --timeout)
@@ -84,12 +85,23 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Invalid option: $1" >&2
-      show_help
-      exit 1
+      if [[ -z "$LAST_BRANCH" ]]; then
+        LAST_BRANCH="$1"
+        shift
+      else
+        echo "Invalid option: $1" >&2
+        show_help
+        exit 1
+      fi
       ;;
   esac
 done
+
+if [[ -z "$LAST_BRANCH" ]]; then
+  echo "Error: Missing last branch name." >&2
+  show_help
+  exit 1
+fi
 
 # Check for gh CLI
 if ! command -v gh &> /dev/null; then
@@ -113,13 +125,28 @@ if [[ -z "$MAIN_BRANCH" ]]; then
 fi
 echo "Using main branch: $MAIN_BRANCH"
 
-# Get the list of pull requests from the user
-echo "Enter the pull request branches in the order they should be merged (one per line)."
-echo "Press Enter on an empty line to finish."
-
+# Build the list of branches
 BRANCHES=()
-while read -r line && [[ -n "$line" ]]; do
-  BRANCHES+=("$line")
+CURRENT_BRANCH="$LAST_BRANCH"
+while [[ "$CURRENT_BRANCH" != "$MAIN_BRANCH" ]]; do
+  BRANCHES+=("$CURRENT_BRANCH")
+  CURRENT_BRANCH=$(gh pr view "$CURRENT_BRANCH" --json baseRefName -q .baseRefName)
+  if [[ -z "$CURRENT_BRANCH" ]]; then
+    echo "Error: Could not find pull request for branch '$LAST_BRANCH'."
+    notify_user "Error: Could not find pull request for branch '$LAST_BRANCH'."
+    exit 1
+  fi
+done
+
+# Reverse the order of the branches
+for i in $(seq 0 $((${#BRANCHES[@]} - 1))); do
+  REVERSED_BRANCHES[i]="${BRANCHES[${#BRANCHES[@]}-i-1]}"
+done
+BRANCHES=("${REVERSED_BRANCHES[@]}")
+
+echo "The following branches will be processed in order:"
+for BRANCH in "${BRANCHES[@]}"; do
+  echo "  - $BRANCH"
 done
 
 run_command "git fetch --all --prune"

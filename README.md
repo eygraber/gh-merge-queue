@@ -4,6 +4,7 @@ A simple script to automate the process of merging stacked pull requests.
 
 ## Features
 
+- Automatically finds all the pull requests in a stack, given the last branch in the chain.
 - Automatically rebases and pushes each branch in the queue.
 - Polls the pull request until it's merged.
 - Deletes the local branch after the pull request is merged.
@@ -16,7 +17,7 @@ A simple script to automate the process of merging stacked pull requests.
 ## Usage
 
 ```bash
-./git-queue [options]
+./git-queue [options] <last-branch>
 ```
 
 ### Options
