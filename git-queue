@@ -148,7 +148,7 @@ if ! gh auth status &> /dev/null; then
   exit 1
 fi
 
-MAIN_BRANCH=$(gh repo view --json defaultBranchRef.name -q .defaultBranchRef.name)
+MAIN_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 if [[ -z "$MAIN_BRANCH" ]]; then
   echo "Error: Could not determine the default branch for this repository."
   notify_user "Error: Could not determine the default branch for this repository."
