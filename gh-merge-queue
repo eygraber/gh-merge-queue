@@ -64,9 +64,9 @@ function notify_user() {
 
   while true; do
     if [[ "$(uname)" == "Darwin" ]]; then
-      osascript -e "display notification \"$message\" with title \"git-queue\""
+      osascript -e "display notification \"$message\" with title \"gh-merge-queue\""
     elif command -v notify-send &> /dev/null; then
-      notify-send "git-queue" "$message"
+      notify-send "gh-merge-queue" "$message"
     fi
 
     play_notification_sound
@@ -127,10 +127,10 @@ function show_help() {
 
 function load_config() {
   CONFIG_FILE=""
-  if [[ -f ".github/.git-queue" ]]; then
-    CONFIG_FILE=".github/.git-queue"
-  elif [[ -f ".git-queue" ]]; then
-    CONFIG_FILE=".git-queue"
+  if [[ -f ".github/.gh-merge-queue" ]]; then
+    CONFIG_FILE=".github/.gh-merge-queue"
+  elif [[ -f ".gh-merge-queue" ]]; then
+    CONFIG_FILE=".gh-merge-queue"
   fi
 
   if [[ -n "$CONFIG_FILE" ]]; then

@@ -1,4 +1,4 @@
-# git-queue
+# gh-merge-queue
 
 A simple script to automate the process of merging stacked pull requests.
 
@@ -21,7 +21,7 @@ A simple script to automate the process of merging stacked pull requests.
 ## Usage
 
 ```bash
-./git-queue [options] <last-branch>
+./gh-merge-queue [options] <last-branch>
 ```
 
 ### Options
@@ -36,12 +36,12 @@ A simple script to automate the process of merging stacked pull requests.
 
 ## Configuration
 
-You can configure `git-queue` by creating a `.git-queue` file in the root of your project or in the `.github` directory.
+You can configure `gh-merge-queue` by creating a `.gh-merge-queue` file in the root of your project or in the `.github` directory.
 This file can contain default values for the command-line arguments. Command-line arguments will always take precedence over the values in the configuration file.
 
 The configuration file uses a simple `key=value` format.
 
-### Sample `.git-queue` file
+### Sample `.gh-merge-queue` file
 
 ```
 # Set the default merge method to squash
