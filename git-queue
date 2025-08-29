@@ -5,10 +5,23 @@ set -e
 POLL_INTERVAL_SECONDS=30
 TIMEOUT_SECONDS=900 # 15 minutes
 MUTED=false
+DRY_RUN=false
 BELL_DELAY=5
 MAX_BELL_DELAY=60
 
+function run_command() {
+  if [[ "$DRY_RUN" = true ]]; then
+    echo "[DRY RUN] $1"
+  else
+    eval "$1"
+  fi
+}
+
 function notify_user() {
+  if [[ "$DRY_RUN" = true ]]; then
+    echo "[DRY RUN] Notify: $1"
+    return
+  fi
   if [[ "$(uname)" == "Darwin" ]]; then
     osascript -e "display notification \"$1\" with title \"git-queue\""
   elif command -v notify-send &> /dev/null; then
@@ -30,9 +43,9 @@ function ring_bell() {
 
 function cleanup() {
   echo "Cleaning up..."
-  git fetch -p -P
-  git remote prune origin
-  git gc
+  run_command "git fetch -p -P"
+  run_command "git remote prune origin"
+  run_command "git gc"
 }
 
 trap cleanup EXIT
@@ -43,6 +56,7 @@ function show_help() {
   echo "  --timeout <seconds>    Timeout for waiting for a pull request to be merged (default: 900)."
   echo "  --poll-interval <seconds>  Interval for polling the pull request status (default: 30)."
   echo "  --muted                  Disable the bell sound."
+  echo "  --dry-run                Print the commands that would be executed without running them."
   echo "  --help                   Show this help message."
 }
 
@@ -59,6 +73,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --muted)
       MUTED=true
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=true
       shift
       ;;
     --help)
@@ -104,15 +122,15 @@ while read -r line && [[ -n "$line" ]]; do
   BRANCHES+=("$line")
 done
 
-git fetch --all --prune
+run_command "git fetch --all --prune"
 
 # Loop through the pull requests and process them
 for BRANCH in "${BRANCHES[@]}"; do
   BELL_DELAY=5 # Reset bell delay for each branch
   echo "Processing pull request branch: $BRANCH"
-  git checkout "$BRANCH"
-  git rebase "$MAIN_BRANCH"
-  git push --force-with-lease
+  run_command "git checkout \"$BRANCH\""
+  run_command "git rebase \"$MAIN_BRANCH\""
+  run_command "git push --force-with-lease"
 
   PR_URL=$(gh pr view --json url -q .url)
   if [[ -z "$PR_URL" ]]; then
@@ -124,6 +142,10 @@ for BRANCH in "${BRANCHES[@]}"; do
   echo "Waiting for pull request $PR_URL to be merged..."
   START_TIME=$(date +%s)
   while true; do
+    if [[ "$DRY_RUN" = true ]]; then
+      echo "[DRY RUN] Checking PR status..."
+      break
+    fi
     STATE=$(gh pr view "$PR_URL" --json state -q .state)
     if [[ "$STATE" == "MERGED" ]]; then
       echo "Pull request $PR_URL has been merged."
@@ -156,9 +178,9 @@ for BRANCH in "${BRANCHES[@]}"; do
     sleep "$POLL_INTERVAL_SECONDS"
   done
 
-  git checkout "$MAIN_BRANCH"
-  git pull
-  git branch -D "$BRANCH"
+  run_command "git checkout \"$MAIN_BRANCH\""
+  run_command "git pull"
+  run_command "git branch -D \"$BRANCH\""
   echo "Branch '$BRANCH' has been deleted."
 done
 
