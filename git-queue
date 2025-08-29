@@ -194,7 +194,7 @@ for BRANCH in "${BRANCHES[@]}"; do
   fi
   run_command "git push --force-with-lease"
 
-  PR_URL=$(gh pr view --json url -q .url)
+  PR_URL=$(gh pr view "$BRANCH" --json url -q .url)
   if [[ -z "$PR_URL" ]]; then
     echo "Error: Could not get pull request URL for branch '$BRANCH'."
     notify_user "Error: Could not get pull request URL for branch '$BRANCH'."
