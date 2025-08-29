@@ -302,10 +302,17 @@ for BRANCH in "${BRANCHES[@]}"; do
 
   run_pre_push_command
 
+  if ! run_command "git commit --amend --no-edit" ; then
+    notify_user "Error: git commit --amend --no-edit failed" true
+    exit 1;
+  fi
+
   if ! run_command "git push --force-with-lease" ; then
     notify_user "Error: git push --force-with-lease failed" true
     exit 1;
   fi
+
+  sleep 5 # Give GitHub a few seconds to update the PR status
 
   PR_URL=$(gh pr view "$BRANCH" --json url -q .url)
   if [[ -z "$PR_URL" ]]; then
