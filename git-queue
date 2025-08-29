@@ -81,7 +81,42 @@ function prompt_user_for_approval() {
 done
 }
 
+function load_config() {
+  CONFIG_FILE=""
+  if [[ -f ".github/.git-queue" ]]; then
+    CONFIG_FILE=".github/.git-queue"
+  elif [[ -f ".git-queue" ]]; then
+    CONFIG_FILE=".git-queue"
+  fi
+
+  if [[ -n "$CONFIG_FILE" ]]; then
+    echo "Loading config from $CONFIG_FILE"
+    while read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ ^\s*([a-zA-Z0-9_-]+)\s*=\s*(.*)\s*$ ]]; then
+            key="${BASH_REMATCH[1]}"
+            value="${BASH_REMATCH[2]}"
+            
+            # remove quotes from value if any
+            value="${value#"}"
+            value="${value%"}"
+            value="${value#\}"
+            value="${value%\'}"
+
+            case "$key" in
+              "timeout") TIMEOUT_SECONDS="$value" ;; 
+              "poll-interval") POLL_INTERVAL_SECONDS="$value" ;; 
+              "muted") MUTED="$value" ;; 
+              "auto-merge") AUTO_MERGE="$value" ;; 
+              "pre-push-command") PRE_PUSH_COMMAND="$value" ;; 
+              "merge-method") MERGE_METHOD="$value" ;; 
+            esac
+        fi
+    done < "$CONFIG_FILE"
+  fi
+}
+
 # Parse command-line arguments
+load_config
 LAST_BRANCH=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -112,7 +147,7 @@ while [[ $# -gt 0 ]]; do
     --pre-push-command)
       PRE_PUSH_COMMAND="$2"
       shift 2
-      ;;
+      ;; 
     --merge-method)
       if [[ "$2" != "squash" && "$2" != "rebase" && "$2" != "merge" ]]; then
         echo "Error: Invalid merge method. Must be one of: squash, rebase, merge." >&2

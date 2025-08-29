@@ -34,6 +34,29 @@ A simple script to automate the process of merging stacked pull requests.
 - `--pre-push-command <cmd>`: Command to run before pushing to GitHub.
 - `--help`: Show the help message.
 
+## Configuration
+
+You can configure `git-queue` by creating a `.git-queue` file in the root of your project or in the `.github` directory.
+This file can contain default values for the command-line arguments. Command-line arguments will always take precedence over the values in the configuration file.
+
+The configuration file uses a simple `key=value` format.
+
+### Sample `.git-queue` file
+
+```
+# Set the default merge method to squash
+merge-method=squash
+
+# Mute all sound notifications
+muted=true
+
+# Set a default pre-push command
+pre-push-command="npm run test"
+
+# Set a custom timeout of 20 minutes (1200 seconds)
+timeout=1200
+```
+
 ## Dependencies
 
 - [GitHub CLI](https://cli.github.com/)
