@@ -60,7 +60,7 @@ trap cleanup EXIT
 function show_help() {
   echo "Usage: $(basename "$0") [options] <last-branch>"
   echo "Options:"
-  echo "  --timeout <seconds>    Timeout for waiting for a pull request to be merged (default: 900)."
+  echo "  --timeout <seconds>      Timeout for waiting for a pull request to be merged (default: 900)."
   echo "  --poll-interval <seconds>  Interval for polling the pull request status (default: 30)."
   echo "  --muted                  Disable the bell sound."
   echo "  --dry-run                Print the commands that would be executed without running them."
@@ -92,25 +92,26 @@ function load_config() {
   if [[ -n "$CONFIG_FILE" ]]; then
     echo "Loading config from $CONFIG_FILE"
     while read -r line || [[ -n "$line" ]]; do
-        if [[ "$line" =~ ^\s*([a-zA-Z0-9_-]+)\s*=\s*(.*)\s*$ ]]; then
-            key="${BASH_REMATCH[1]}"
-            value="${BASH_REMATCH[2]}"
-            
-            # remove quotes from value if any
-            value="${value#"}"
-            value="${value%"}"
-            value="${value#\}"
-            value="${value%\'}"
+      if [[ "$line" =~ ^\s*([a-zA-Z0-9_-]+)\s*=\s*(.*)\s*$ ]]; then
+        key="${BASH_REMATCH[1]}"
+        value="${BASH_REMATCH[2]}"
 
-            case "$key" in
-              "timeout") TIMEOUT_SECONDS="$value" ;; 
-              "poll-interval") POLL_INTERVAL_SECONDS="$value" ;; 
-              "muted") MUTED="$value" ;; 
-              "auto-merge") AUTO_MERGE="$value" ;; 
-              "pre-push-command") PRE_PUSH_COMMAND="$value" ;; 
-              "merge-method") MERGE_METHOD="$value" ;; 
-            esac
+        # remove surrounding quotes from value if any
+        if [[ "${value:0:1}" == '"' && "${value: -1}" == '"' ]]; then
+            value="${value:1:-1}"
+        elif [[ "${value:0:1}" == "'" && "${value: -1}" == "'" ]]; then
+            value="${value:1:-1}"
         fi
+
+        case "$key" in
+          "timeout") TIMEOUT_SECONDS="$value" ;;
+          "poll-interval") POLL_INTERVAL_SECONDS="$value" ;;
+          "muted") MUTED="$value" ;;
+          "auto-merge") AUTO_MERGE="$value" ;;
+          "pre-push-command") PRE_PUSH_COMMAND="$value" ;;
+          "merge-method") MERGE_METHOD="$value" ;;
+        esac
+      fi
     done < "$CONFIG_FILE"
   fi
 }
@@ -123,31 +124,31 @@ while [[ $# -gt 0 ]]; do
     --timeout)
       TIMEOUT_SECONDS="$2"
       shift 2
-      ;; 
+      ;;
     --poll-interval)
       POLL_INTERVAL_SECONDS="$2"
       shift 2
-      ;; 
+      ;;
     --muted)
       MUTED=true
       shift
-      ;; 
+      ;;
     --dry-run)
       DRY_RUN=true
       shift
-      ;; 
+      ;;
     --auto-merge)
       AUTO_MERGE=true
       shift
-      ;; 
+      ;;
     --no-auto-merge)
       AUTO_MERGE=false
       shift
-      ;; 
+      ;;
     --pre-push-command)
       PRE_PUSH_COMMAND="$2"
       shift 2
-      ;; 
+      ;;
     --merge-method)
       if [[ "$2" != "squash" && "$2" != "rebase" && "$2" != "merge" ]]; then
         echo "Error: Invalid merge method. Must be one of: squash, rebase, merge." >&2
@@ -155,11 +156,11 @@ while [[ $# -gt 0 ]]; do
       fi
       MERGE_METHOD="$2"
       shift 2
-      ;; 
+      ;;
     --help)
       show_help
       exit 0
-      ;; 
+      ;;
     *)
       if [[ -z "$LAST_BRANCH" ]]; then
         LAST_BRANCH="$1"
@@ -169,7 +170,7 @@ while [[ $# -gt 0 ]]; do
         show_help
         exit 1
       fi
-      ;; 
+      ;;
   esac
 done
 
@@ -315,3 +316,4 @@ done
 
 echo "All pull requests have been processed."
 notify_user "All pull requests have been processed."
+
