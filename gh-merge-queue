@@ -339,7 +339,7 @@ for BRANCH in "${BRANCHES[@]}"; do
       exit 1
     fi
 
-    CHECKS_STATUS=$(gh pr view "$PR_URL" --json checks -q '.checks | map(select(.conclusion != "SUCCESS" and .conclusion != "SKIPPED" and .conclusion != null)) | length')
+    CHECKS_STATUS=$(gh pr view "$PR_URL" --json statusCheckRollup -q '.statusCheckRollup | map(select(.status == "COMPLETED" and .conclusion != "SUCCESS" and .conclusion != "SKIPPED" and .conclusion != null)) | length')
     if [[ "$CHECKS_STATUS" -gt 0 ]]; then
       notify_user "Error: Some checks have failed for pull request $PR_URL." true
       exit 1
