@@ -5,6 +5,15 @@ set -e
 POLL_INTERVAL_SECONDS=30
 TIMEOUT_SECONDS=900 # 15 minutes
 
+function cleanup() {
+  echo "Cleaning up..."
+  git fetch -p -P
+  git remote prune origin
+  git gc
+}
+
+trap cleanup EXIT
+
 function show_help() {
   echo "Usage: $(basename "$0") [options]"
   echo "Options:"
