@@ -62,3 +62,24 @@ timeout=1200
 - [GitHub CLI](https://cli.github.com/)
 - `notify-send` (optional, for desktop notifications on Linux)
 - `osascript` (optional, for desktop notifications on macOS)
+
+## GitHub Action
+
+This repository also provides a GitHub Action that can be used to automatically rebase a pull request when it is out of date with the base branch.
+
+### Usage
+
+To use this action, you can add the following to your workflow file:
+
+```yaml
+- name: 'Rebase PR'
+  uses: <your-repo-name>@<version>
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    fail-on-out-of-date: 'false' # Optional
+```
+
+### Inputs
+
+- `github-token`: The GitHub token to use for authentication. This is required.
+- `fail-on-out-of-date`: If `true`, the action will fail if the PR is out of date. Otherwise, it will rebase and push. This is optional and defaults to `false`.
