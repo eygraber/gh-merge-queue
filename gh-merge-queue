@@ -302,9 +302,17 @@ for BRANCH in "${BRANCHES[@]}"; do
 
   run_pre_push_command
 
-  if ! run_command "git commit --amend --no-edit" ; then
-    notify_user "Error: git commit --amend --no-edit failed" true
-    exit 1;
+  LOCAL_HEAD=$(git rev-parse HEAD)
+  REMOTE_HEAD=$(git rev-parse origin/"$BRANCH" 2>/dev/null || echo "") # Handle case where remote branch doesn't exist yet
+
+  if [[ "$LOCAL_HEAD" == "$REMOTE_HEAD" ]]; then
+    echo "Local and remote heads are the same. Amending commit to trigger remote update."
+    if ! run_command "git commit --amend --no-edit" ; then
+      notify_user "Error: git commit --amend --no-edit failed" true
+      exit 1;
+    fi
+  else
+    echo "Local and remote heads differ. No need to amend commit."
   fi
 
   if ! run_command "git push --force-with-lease" ; then
