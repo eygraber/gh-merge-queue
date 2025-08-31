@@ -6,7 +6,8 @@ MUTED=false
 DRY_RUN=false
 AUTO_MERGE=true
 PRE_PUSH_COMMAND=""
-MERGE_METHOD="rebase"
+MERGE_METHOD=""
+USER_MERGE_METHOD=""
 GIT_OPERATIONS_PERFORMED=false
 NOTIFY_LOOP_DELAY=5
 MAX_NOTIFY_LOOP_DELAY=60
@@ -112,6 +113,68 @@ function cleanup() {
 
 trap cleanup EXIT
 
+function get_allowed_merge_methods() {
+  ALLOWED_MERGE_METHODS=()
+  local methods
+  methods=$(gh repo view --json rebaseMergeAllowed,squashMergeAllowed,mergeCommitAllowed -q '[(.rebaseMergeAllowed | tostring), (.squashMergeAllowed | tostring), (.mergeCommitAllowed | tostring)] | @json')
+  if [[ -z "$methods" ]]; then
+      notify_user "Error: Could not determine any allowed merge methods for this repository. Check your 'gh' CLI version and permissions." false
+      exit 1
+  fi
+
+  if echo "$methods" | jq -e '.[0] == "true"' > /dev/null; then
+    ALLOWED_MERGE_METHODS+=("rebase")
+  fi
+  if echo "$methods" | jq -e '.[1] == "true"' > /dev/null; then
+    ALLOWED_MERGE_METHODS+=("squash")
+  fi
+  if echo "$methods" | jq -e '.[2] == "true"' > /dev/null; then
+    ALLOWED_MERGE_METHODS+=("merge")
+  fi
+
+  if [ ${#ALLOWED_MERGE_METHODS[@]} -eq 0 ]; then
+    notify_user "Error: No merge methods are enabled for this repository." false
+    exit 1
+  fi
+}
+
+function determine_merge_method() {
+  local user_merge_method=$1
+
+  if [[ -n "$user_merge_method" ]]; then
+    # User provided a merge method
+    local is_allowed=false
+    for allowed_method in "${ALLOWED_MERGE_METHODS[@]}"; do
+      if [[ "$allowed_method" == "$user_merge_method" ]]; then
+        is_allowed=true
+        break
+      fi
+    done
+
+    if [[ "$is_allowed" == true ]]; then
+      MERGE_METHOD="$user_merge_method"
+    else
+      notify_user "Error: Merge method '$user_merge_method' is not enabled for this repository. Allowed methods are: ${ALLOWED_MERGE_METHODS[*]}" false
+      exit 1
+    fi
+  else
+    # User did not provide a merge method, so we determine the best one.
+    if [[ ${#ALLOWED_MERGE_METHODS[@]} -eq 1 ]]; then
+      MERGE_METHOD="${ALLOWED_MERGE_METHODS[0]}"
+    elif [[ " ${ALLOWED_MERGE_METHODS[@]} " =~ " rebase " ]]; then
+      MERGE_METHOD="rebase"
+    elif [[ " ${ALLOWED_MERGE_METHODS[@]} " =~ " squash " ]]; then
+      MERGE_METHOD="squash"
+    elif [[ " ${ALLOWED_MERGE_METHODS[@]} " =~ " merge " ]]; then
+      MERGE_METHOD="merge"
+    else
+      # This case should be handled by get_allowed_merge_methods, but just in case.
+      notify_user "Error: No suitable merge method found." false
+      exit 1
+    fi
+  fi
+}
+
 function show_help() {
   echo "Usage: $(basename "$0") [options] <last-branch>"
   echo "Options:"
@@ -153,7 +216,7 @@ function load_config() {
           "muted") MUTED="$value" ;;
           "auto-merge") AUTO_MERGE="$value" ;;
           "pre-push-command") PRE_PUSH_COMMAND="$value" ;;
-          "merge-method") MERGE_METHOD="$value" ;;
+          "merge-method") USER_MERGE_METHOD="$value" ;;
         esac
       fi
     done < "$CONFIG_FILE"
@@ -194,11 +257,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --merge-method)
-      if [[ "$2" != "squash" && "$2" != "rebase" && "$2" != "merge" ]]; then
-        echo "Error: Invalid merge method. Must be one of: squash, rebase, merge." >&2
-        exit 1
-      fi
-      MERGE_METHOD="$2"
+      USER_MERGE_METHOD="$2"
       shift 2
       ;;
     --help)
@@ -241,6 +300,9 @@ if ! command -v jq &> /dev/null; then
   notify_user "Error: jq is not installed. Please install it to use this script." false
   exit 1
 fi
+
+get_allowed_merge_methods
+determine_merge_method "$USER_MERGE_METHOD"
 
 MAIN_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 if [[ -z "$MAIN_BRANCH" ]]; then
