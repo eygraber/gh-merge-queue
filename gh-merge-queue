@@ -7,6 +7,7 @@ DRY_RUN=false
 AUTO_MERGE=true
 PRE_PUSH_COMMAND=""
 MERGE_METHOD="rebase"
+FAIL_ON_OUT_OF_DATE=false
 GIT_OPERATIONS_PERFORMED=false
 NOTIFY_LOOP_DELAY=5
 MAX_NOTIFY_LOOP_DELAY=60
@@ -122,6 +123,8 @@ function show_help() {
   echo "  --[no-]auto-merge        Enable or disable auto-merge for the pull requests (default: enabled)."
   echo "  --pre-push-command <cmd> Command to run before pushing to GitHub."
   echo "  --merge-method <method>  Merge method to use (squash, rebase, or merge). Default: rebase."
+  echo "  --fail-on-out-of-date    Fail if the pull request is out of date with the base branch."
+  echo "  "
   echo "  --help                   Show this help message."
 }
 
@@ -200,6 +203,10 @@ while [[ $# -gt 0 ]]; do
       fi
       MERGE_METHOD="$2"
       shift 2
+      ;;
+    --fail-on-out-of-date)
+      FAIL_ON_OUT_OF_DATE=true
+      shift
       ;;
     --help)
       show_help
@@ -295,9 +302,19 @@ for BRANCH in "${BRANCHES[@]}"; do
     exit 1;
   fi
 
-  if ! run_command "git rebase \"$MAIN_BRANCH\"" ; then
-    notify_user "Error: git rebase \"$MAIN_BRANCH\" failed" true
-    exit 1;
+  MERGEABLE_STATE=$(gh pr view "$BRANCH" --json mergeable -q .mergeable)
+  if [[ "$MERGEABLE_STATE" == "MERGEABLE" ]]; then
+    echo "Pull request is mergeable."
+  else
+    if [[ "$FAIL_ON_OUT_OF_DATE" = true ]]; then
+      notify_user "Error: Pull request is not mergeable." true
+      exit 1
+    fi
+    echo "Pull request is not mergeable. Rebasing..."
+    if ! run_command "git rebase \"$MAIN_BRANCH\"" ; then
+      notify_user "Error: git rebase \"$MAIN_BRANCH\" failed" true
+      exit 1;
+    fi
   fi
 
   run_pre_push_command
