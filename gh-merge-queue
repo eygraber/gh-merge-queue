@@ -302,19 +302,16 @@ for BRANCH in "${BRANCHES[@]}"; do
     exit 1;
   fi
 
-  MERGEABLE_STATE=$(gh pr view "$BRANCH" --json mergeable -q .mergeable)
-  if [[ "$MERGEABLE_STATE" == "MERGEABLE" ]]; then
-    echo "Pull request is mergeable."
-  else
-    if [[ "$FAIL_ON_OUT_OF_DATE" = true ]]; then
-      notify_user "Error: Pull request is not mergeable." true
-      exit 1
+  if [[ "$FAIL_ON_OUT_OF_DATE" = true ]]; then
+    if [ $(git rev-list --count HEAD..origin/$MAIN_BRANCH) -gt 0 ]; then
+        notify_user "Error: Pull request is out of date." true
+        exit 1
     fi
-    echo "Pull request is not mergeable. Rebasing..."
-    if ! run_command "git rebase \"$MAIN_BRANCH\"" ; then
-      notify_user "Error: git rebase \"$MAIN_BRANCH\" failed" true
-      exit 1;
-    fi
+  fi
+
+  if ! run_command "git rebase \"$MAIN_BRANCH\"" ; then
+    notify_user "Error: git rebase \"$MAIN_BRANCH\" failed" true
+    exit 1;
   fi
 
   run_pre_push_command
