@@ -4,6 +4,7 @@ POLL_INTERVAL_SECONDS=30
 TIMEOUT_SECONDS=900 # 15 minutes
 MUTED=false
 DRY_RUN=false
+FAIL_ON_OUT_OF_DATE=false
 AUTO_MERGE=true
 PRE_PUSH_COMMAND=""
 MERGE_METHOD=""
@@ -185,6 +186,7 @@ function show_help() {
   echo "  --[no-]auto-merge        Enable or disable auto-merge for the pull requests (default: enabled)."
   echo "  --pre-push-command <cmd> Command to run before pushing to GitHub."
   echo "  --merge-method <method>  Merge method to use (squash, rebase, or merge). Default: rebase."
+  echo "  --fail-on-out-of-date    Fail the queue if a PR is out of date, instead of rebasing."
   echo "  --help                   Show this help message."
 }
 
@@ -259,6 +261,10 @@ while [[ $# -gt 0 ]]; do
     --merge-method)
       USER_MERGE_METHOD="$2"
       shift 2
+      ;;
+    --fail-on-out-of-date)
+      FAIL_ON_OUT_OF_DATE=true
+      shift
       ;;
     --help)
       show_help
@@ -351,6 +357,18 @@ for BRANCH in "${BRANCHES[@]}"; do
   NOTIFY_LOOP_DELAY=5 # Reset notification delay for each branch
 
   echo "Processing pull request branch: $BRANCH"
+
+  BASE_BRANCH_HASH=$(git rev-parse "origin/$MAIN_BRANCH")
+  MERGE_BASE_HASH=$(git merge-base "origin/$MAIN_BRANCH" "origin/$BRANCH")
+
+  if [[ "$BASE_BRANCH_HASH" != "$MERGE_BASE_HASH" ]]; then
+    if [[ "$FAIL_ON_OUT_OF_DATE" = true ]]; then
+      notify_user "Error: Pull request for branch '$BRANCH' is out of date." true
+      exit 1
+    else
+      notify_user "Pull request for branch '$BRANCH' is out of date. Rebasing and force-pushing." false
+    fi
+  fi
 
   if ! run_command "git checkout \"$BRANCH\"" ; then
     notify_user "Error: Couldn't checkout \"$BRANCH\"" true

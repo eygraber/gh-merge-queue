@@ -32,6 +32,7 @@ A simple script to automate the process of merging stacked pull requests.
 - `--dry-run`: Print the commands that would be executed without running them.
 - `--[no-]auto-merge`: Enable or disable auto-merge for the pull requests (default: enabled).
 - `--pre-push-command <cmd>`: Command to run before pushing to GitHub.
+- `--fail-on-out-of-date`: Fail the queue if a PR is out of date, instead of rebasing.
 - `--help`: Show the help message.
 
 ## Configuration
