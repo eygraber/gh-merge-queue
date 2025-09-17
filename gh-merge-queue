@@ -12,6 +12,7 @@ USER_MERGE_METHOD=""
 GIT_OPERATIONS_PERFORMED=false
 NOTIFY_LOOP_DELAY=5
 MAX_NOTIFY_LOOP_DELAY=60
+RETRY_FLAKY_CHECKS=""
 
 function run_command() {
   GIT_OPERATIONS_PERFORMED=true
@@ -187,6 +188,7 @@ function show_help() {
   echo "  --pre-push-command <cmd> Command to run before pushing to GitHub."
   echo "  --merge-method <method>  Merge method to use (squash, rebase, or merge). Default: rebase."
   echo "  --fail-on-out-of-date    Fail the queue if a PR is out of date, instead of rebasing."
+  echo "  --retry-flaky-checks[=<csv>] Retry flaky checks. If no value is provided, any failed check is retried. Otherwise, a comma-separated list of check names to retry."
   echo "  --help                   Show this help message."
 }
 
@@ -221,7 +223,7 @@ function load_config() {
           "merge-method") USER_MERGE_METHOD="$value" ;;
         esac
       fi
-    done < "$CONFIG_FILE"
+done < "$CONFIG_FILE"
   fi
 }
 
@@ -233,43 +235,51 @@ while [[ $# -gt 0 ]]; do
     --timeout)
       TIMEOUT_SECONDS="$2"
       shift 2
-      ;;
+      ;; 
     --poll-interval)
       POLL_INTERVAL_SECONDS="$2"
       shift 2
-      ;;
+      ;; 
     --muted)
       MUTED=true
       shift
-      ;;
+      ;; 
     --dry-run)
       DRY_RUN=true
       shift
-      ;;
+      ;; 
     --auto-merge)
       AUTO_MERGE=true
       shift
-      ;;
+      ;; 
     --no-auto-merge)
       AUTO_MERGE=false
       shift
-      ;;
+      ;; 
     --pre-push-command)
       PRE_PUSH_COMMAND="$2"
       shift 2
-      ;;
+      ;; 
     --merge-method)
       USER_MERGE_METHOD="$2"
       shift 2
-      ;;
+      ;; 
     --fail-on-out-of-date)
       FAIL_ON_OUT_OF_DATE=true
       shift
-      ;;
+      ;; 
+    --retry-flaky-checks*)
+      if [[ "$1" == *=* ]]; then
+        RETRY_FLAKY_CHECKS="${1#*=}"
+      else
+        RETRY_FLAKY_CHECKS="true"
+      fi
+      shift
+      ;; 
     --help)
       show_help
       exit 0
-      ;;
+      ;; 
     *)
       if [[ -z "$LAST_BRANCH" ]]; then
         LAST_BRANCH="$1"
@@ -279,7 +289,7 @@ while [[ $# -gt 0 ]]; do
         show_help
         exit 1
       fi
-      ;;
+      ;; 
   esac
 done
 
@@ -434,10 +444,65 @@ for BRANCH in "${BRANCHES[@]}"; do
       exit 1
     fi
 
-    CHECKS_STATUS=$(gh pr view "$PR_URL" --json statusCheckRollup -q '.statusCheckRollup | map(select(.status == "COMPLETED" and .conclusion != "SUCCESS" and .conclusion != "SKIPPED" and .conclusion != null)) | length')
-    if [[ "$CHECKS_STATUS" -gt 0 ]]; then
-      notify_user "Error: Some checks have failed for pull request $PR_URL." true
-      exit 1
+    if [[ -n "$RETRY_FLAKY_CHECKS" ]]; then
+      REPO_NWO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+      COMMIT_SHA=$(gh pr view "$PR_URL" --json headRefOid -q .headRefOid)
+      FAILED_CHECKS_JSON=$(gh api "repos/$REPO_NWO/commits/$COMMIT_SHA/check-runs" -q '.check_runs | map(select(.conclusion == "failure"))')
+      FAILED_CHECKS_COUNT=$(echo "$FAILED_CHECKS_JSON" | jq 'length')
+
+      if [[ "$FAILED_CHECKS_COUNT" -gt 0 ]]; then
+        if [[ "$RETRY_FLAKY_CHECKS" != "true" ]]; then
+          FLAKY_CHECKS_LIST=(${RETRY_FLAKY_CHECKS//,/ })
+          FAILED_CHECKS_NAMES=$(echo "$FAILED_CHECKS_JSON" | jq -r '.[].name')
+
+          NON_FLAKY_FAILURES=()
+          for check in $FAILED_CHECKS_NAMES; do
+            is_flaky=false
+            for flaky_check in "${FLAKY_CHECKS_LIST[@]}"; do
+              if [[ "$check" == "$flaky_check" ]]; then
+                is_flaky=true
+                break
+              fi
+            done
+            if [[ "$is_flaky" == false ]]; then
+              NON_FLAKY_FAILURES+=("$check")
+            fi
+          done
+
+          if [[ ${#NON_FLAKY_FAILURES[@]} -gt 0 ]]; then
+            notify_user "Error: The following non-flaky checks have failed for pull request $PR_URL: ${NON_FLAKY_FAILURES[*]}" true
+            exit 1
+          fi
+        fi
+
+        echo "Some checks have failed. Retrying..."
+        FAILED_RUN_IDS=$(echo "$FAILED_CHECKS_JSON" | jq -r '.[].id')
+        WORKFLOW_RUN_IDS=()
+        for run_id in $FAILED_RUN_IDS; do
+          CHECK_SUITE_ID=$(gh api "repos/$REPO_NWO/check-runs/$run_id" -q '.check_suite.id')
+          WORKFLOW_RUN_ID=$(gh api "repos/$REPO_NWO/actions/runs?check_suite_id=$CHECK_SUITE_ID" -q '.workflow_runs[0].id')
+          if [[ -n "$WORKFLOW_RUN_ID" ]]; then
+            WORKFLOW_RUN_IDS+=("$WORKFLOW_RUN_ID")
+          else
+            echo "Could not find workflow run for check run $run_id"
+          fi
+        done
+
+        UNIQUE_WORKFLOW_RUN_IDS=$(echo "${WORKFLOW_RUN_IDS[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')
+        if [[ -n "$UNIQUE_WORKFLOW_RUN_IDS" ]]; then
+          for workflow_run_id in $UNIQUE_WORKFLOW_RUN_IDS; do
+            echo "Retrying failed jobs for workflow run with ID: $workflow_run_id"
+            gh run rerun "$workflow_run_id" --failed
+          done
+          START_TIME=$(date +%s)
+        fi
+      fi
+    else
+      CHECKS_STATUS=$(gh pr view "$PR_URL" --json statusCheckRollup -q '.statusCheckRollup | map(select(.status == "COMPLETED" and .conclusion != "SUCCESS" and .conclusion != "SKIPPED" and .conclusion != null)) | length')
+      if [[ "$CHECKS_STATUS" -gt 0 ]]; then
+        notify_user "Error: Some checks have failed for pull request $PR_URL." true
+        exit 1
+      fi
     fi
 
     AUTO_MERGE_STATUS=$(gh pr view "$PR_URL" --json autoMergeRequest -q .autoMergeRequest)
