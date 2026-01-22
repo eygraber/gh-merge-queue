@@ -190,7 +190,7 @@ function show_help() {
   echo "  --merge-method <method>  Merge method to use (squash, rebase, or merge). Default: rebase."
   echo "  --fail-on-out-of-date    Fail the queue if a PR is out of date, instead of rebasing."
   echo "  --retry-flaky-checks[=<csv>] Retry flaky checks. If no value is provided, any failed check is retried. Otherwise, a comma-separated list of check names to retry."
-  echo "  --only-rebase            Rebase all branches in the chain and push each of them, but do not merge."
+  echo "  --rebase-only            Rebase all branches in the chain and push each of them, but do not merge."
   echo "  --help                   Show this help message."
 }
 
@@ -278,7 +278,7 @@ while [[ $# -gt 0 ]]; do
       fi
       shift
       ;;
-    --only-rebase)
+    --rebase-only)
       ONLY_REBASE=true
       shift
       ;;
@@ -431,7 +431,7 @@ for BRANCH in "${BRANCHES[@]}"; do
   fi
 
   if [[ "$ONLY_REBASE" = true ]]; then
-    echo "Branch '$BRANCH' has been rebased and pushed. Skipping merge because --only-rebase was specified."
+    echo "Branch '$BRANCH' has been rebased and pushed. Skipping merge because --rebase-only was specified."
     continue
   fi
 

@@ -10,7 +10,7 @@ _gh_merge_queue() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # All available options
-    opts="--timeout --poll-interval --muted --dry-run --auto-merge --no-auto-merge --pre-push-command --merge-method --fail-on-out-of-date --retry-flaky-checks --only-rebase --help"
+    opts="--timeout --poll-interval --muted --dry-run --auto-merge --no-auto-merge --pre-push-command --merge-method --fail-on-out-of-date --retry-flaky-checks --rebase-only --help"
 
     # Merge methods
     merge_methods="squash rebase merge"
