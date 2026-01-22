@@ -1,0 +1,56 @@
+# Bash completion for gh-merge-queue
+# To enable, source this file or add to your .bashrc:
+#   source /path/to/gh-merge-queue.bash-completion
+# Or install to /etc/bash_completion.d/ or ~/.local/share/bash-completion/completions/
+
+_gh_merge_queue() {
+    local cur prev opts merge_methods
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    # All available options
+    opts="--timeout --poll-interval --muted --dry-run --auto-merge --no-auto-merge --pre-push-command --merge-method --fail-on-out-of-date --retry-flaky-checks --only-rebase --help"
+
+    # Merge methods
+    merge_methods="squash rebase merge"
+
+    # Handle option arguments
+    case "${prev}" in
+        --timeout|--poll-interval)
+            # Expect a number, no completion
+            return 0
+            ;;
+        --merge-method)
+            COMPREPLY=( $(compgen -W "${merge_methods}" -- "${cur}") )
+            return 0
+            ;;
+        --pre-push-command)
+            # Expect a command string, no completion
+            return 0
+            ;;
+        --retry-flaky-checks)
+            # Expect a comma-separated list of check names, no completion
+            return 0
+            ;;
+    esac
+
+    # Handle options starting with --
+    if [[ "${cur}" == -* ]]; then
+        COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+        return 0
+    fi
+
+    # Complete branch names for the positional argument
+    # Try to get git branches if we're in a git repository
+    if command -v git &> /dev/null && git rev-parse --git-dir &> /dev/null; then
+        local branches
+        branches=$(git for-each-ref --format='%(refname:short)' refs/heads/ 2>/dev/null)
+        COMPREPLY=( $(compgen -W "${branches}" -- "${cur}") )
+        return 0
+    fi
+
+    return 0
+}
+
+complete -F _gh_merge_queue gh-merge-queue
