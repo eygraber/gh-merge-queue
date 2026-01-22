@@ -58,6 +58,40 @@ pre-push-command="npm run test"
 timeout=1200
 ```
 
+## Bash Completion
+
+A bash completion script is provided to enable tab-completion for `gh-merge-queue` arguments.
+
+### Installation
+
+**Option 1: Source in your shell**
+
+Add the following line to your `~/.bashrc` or `~/.bash_profile`:
+
+```bash
+source /path/to/gh-merge-queue.bash-completion
+```
+
+**Option 2: Install to bash-completion directory**
+
+Copy the completion script to one of these locations:
+
+```bash
+# System-wide installation
+sudo cp gh-merge-queue.bash-completion /etc/bash_completion.d/gh-merge-queue
+
+# User-local installation
+mkdir -p ~/.local/share/bash-completion/completions
+cp gh-merge-queue.bash-completion ~/.local/share/bash-completion/completions/gh-merge-queue
+```
+
+### Features
+
+The completion script provides:
+- Completion for all command-line options (`--timeout`, `--muted`, etc.)
+- Completion for merge method values (`squash`, `rebase`, `merge`)
+- Completion for branch names in the current git repository
+
 ## Dependencies
 
 - [GitHub CLI](https://cli.github.com/)
